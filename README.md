@@ -37,13 +37,47 @@ NOT COVERED BY ANYONE  (1)
 
 ## Install
 
+### From a release (macOS, Apple Silicon)
+
+This repository is private, so downloads need an authenticated `gh`:
+
+```bash
+gh release download v0.1.0 --repo donald-jackson/openrouter-fusion-cli \
+  --pattern 'council_v0.1.0_darwin_arm64'
+chmod +x council_v0.1.0_darwin_arm64
+mv council_v0.1.0_darwin_arm64 /usr/local/bin/council
+council version
+```
+
+`gh release download` does not set the macOS quarantine attribute, so the binary runs
+as-is. If you download through a browser instead, Gatekeeper will quarantine the
+unsigned binary — clear it with `xattr -d com.apple.quarantine ./council`.
+
+`.tar.gz` archives for darwin/amd64, linux/amd64 and linux/arm64 are attached to the
+same release, with a `checksums.txt`.
+
+### From source
+
 ```bash
 go build -o bin/council ./cmd/council
 ```
 
-Needs Go 1.25+ and an OpenRouter API key, taken from `OPENROUTER_API_KEY` in the
-environment, a `.env` file in the working directory, or
-`~/.config/council/config.env` — in that order.
+### API key
+
+Read from `OPENROUTER_API_KEY` in the environment, then `.env` in the working
+directory, then `~/.config/council/config.env` — first non-empty wins. Only that one
+variable is read; nothing is exported into the environment.
+
+Because `.env` resolves against the working directory, put the key in the config file
+if you want to run `council` from anywhere:
+
+```bash
+mkdir -p ~/.config/council
+echo 'OPENROUTER_API_KEY=sk-or-v1-...' > ~/.config/council/config.env
+```
+
+`council models` and `council skill` work without a key — the model catalog endpoint is
+public. Only `ask` needs one.
 
 ## Use
 

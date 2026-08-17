@@ -68,7 +68,7 @@ jobs:
             -o "dist/council_${VERSION}_darwin_arm64" \
             ./cmd/council
 
-          cd dist && shasum -a 256 * > checksums.txt
+          cd dist && sha256sum * > checksums.txt
           cat checksums.txt
 
       - name: Verify the Apple Silicon binary is what it claims
@@ -76,8 +76,13 @@ jobs:
           VERSION: ${{ inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
-          file "dist/council_${VERSION}_darwin_arm64" | tee /tmp/filetype
-          grep -q "Mach-O 64-bit executable arm64" /tmp/filetype
+          out="$(file "dist/council_${VERSION}_darwin_arm64")"
+          echo "$out"
+          # Match the two facts independently rather than a full phrase: GNU file
+          # on the runner says "Mach-O 64-bit arm64 executable" while BSD file on
+          # macOS says "Mach-O 64-bit executable arm64".
+          echo "$out" | grep -q "Mach-O" || { echo "not a Mach-O binary"; exit 1; }
+          echo "$out" | grep -q "arm64"  || { echo "not arm64";           exit 1; }
 
       - name: Create release
         env:
