@@ -1,0 +1,132 @@
+name: release
+
+# Cut a release by pushing a tag:
+#   git tag -a v0.1.0 -m "v0.1.0" && git push origin v0.1.0
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build and release (must already exist)'
+        required: true
+
+permissions:
+  contents: write # required to create the release and upload assets
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Never ship a binary from a red tree.
+      - name: go test
+        run: go test ./...
+
+      - name: Build
+        env:
+          VERSION: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          # Pure-Go stdlib only, so every target cross-compiles from this runner.
+          # CGO_ENABLED=0 gives a static binary; -trimpath keeps runner paths out
+          # of it so the build does not leak the checkout directory.
+          for target in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64; do
+            goos="${target%/*}"
+            goarch="${target#*/}"
+            outdir="dist/council_${VERSION}_${goos}_${goarch}"
+            mkdir -p "$outdir"
+
+            GOOS="$goos" GOARCH="$goarch" CGO_ENABLED=0 go build \
+              -trimpath \
+              -ldflags "-s -w -X main.version=${VERSION}" \
+              -o "$outdir/council" \
+              ./cmd/council
+
+            cp README.md "$outdir/"
+            tar -czf "${outdir}.tar.gz" -C dist "$(basename "$outdir")"
+            rm -rf "$outdir"
+            echo "built ${outdir}.tar.gz"
+          done
+
+          # Also ship the Apple Silicon binary bare, so it can be downloaded and
+          # run without unpacking an archive first.
+          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build \
+            -trimpath \
+            -ldflags "-s -w -X main.version=${VERSION}" \
+            -o "dist/council_${VERSION}_darwin_arm64" \
+            ./cmd/council
+
+          cd dist && shasum -a 256 * > checksums.txt
+          cat checksums.txt
+
+      - name: Verify the Apple Silicon binary is what it claims
+        env:
+          VERSION: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          file "dist/council_${VERSION}_darwin_arm64" | tee /tmp/filetype
+          grep -q "Mach-O 64-bit executable arm64" /tmp/filetype
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          cat > /tmp/notes.md <<EOF
+          ## Install on macOS (Apple Silicon)
+
+          \`\`\`bash
+          gh release download ${VERSION} --repo ${{ github.repository }} \\
+            --pattern 'council_${VERSION}_darwin_arm64'
+          chmod +x council_${VERSION}_darwin_arm64
+          mv council_${VERSION}_darwin_arm64 /usr/local/bin/council
+          council version
+          \`\`\`
+
+          This repository is private, so downloads require an authenticated
+          \`gh\` (or a token). \`gh release download\` does not set the macOS
+          quarantine attribute, so the binary runs as-is.
+
+          If you download through a browser instead, Gatekeeper will quarantine
+          the unsigned binary. Clear it with:
+
+          \`\`\`bash
+          xattr -d com.apple.quarantine ./council
+          \`\`\`
+
+          ## Setup
+
+          \`council\` needs an OpenRouter API key, read from \`OPENROUTER_API_KEY\`
+          in the environment, then \`.env\` in the working directory, then
+          \`~/.config/council/config.env\`. To use it from any directory:
+
+          \`\`\`bash
+          mkdir -p ~/.config/council
+          echo 'OPENROUTER_API_KEY=sk-or-v1-...' > ~/.config/council/config.env
+          council models
+          \`\`\`
+
+          ## Other platforms
+
+          \`.tar.gz\` archives are attached for darwin/arm64, darwin/amd64,
+          linux/amd64 and linux/arm64. Verify with \`checksums.txt\`.
+          EOF
+
+          gh release create "${VERSION}" \
+            --repo "${{ github.repository }}" \
+            --title "${VERSION}" \
+            --notes-file /tmp/notes.md \
+            dist/*

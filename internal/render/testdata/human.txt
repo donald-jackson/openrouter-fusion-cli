@@ -1,0 +1,71 @@
+Council  2026-08-17 14:05
+  A UK company sells SaaS to EU consumers and US businesses. What are the VAT and US
+  sales-tax obligations, and where do they interact?
+
+  panel: ~openai/gpt-latest ~anthropic/claude-opus-latest ~google/gemini-pro-latest
+  ~x-ai/grok-latest
+  judge: ~anthropic/claude-opus-latest · synthesis: ~anthropic/claude-opus-latest →
+  anthropic/claude-opus-5
+
+ANSWER
+──────
+  Two separate regimes apply and they do not overlap.
+
+  For EU consumers the UK company must register for VAT under the non-Union OSS scheme
+  and charge the customer's local rate from the first sale — there is no threshold. For
+  US business customers, SaaS taxability varies by state and the reverse-charge concept
+  does not exist.
+
+DISAGREED  (1)
+──────────────
+  the panel split here — treat these as open questions, not settled answers
+  Whether B2B sales to EU businesses need OSS registration
+    ~openai/gpt-latest
+      No — B2B supplies are covered by the reverse charge, so OSS is not needed for
+      them.
+    ~google/gemini-pro-latest
+      Partially — the reverse charge applies only where the customer's VAT number is
+      validated; unvalidated customers must be treated as B2C.
+
+AGREED  (2)
+───────────
+  • Non-Union OSS registration is required for EU B2C sales from the first euro; there
+    is no de minimis threshold.
+  • US sales tax is determined state by state, and economic nexus thresholds are
+    evaluated per state.
+
+RAISED BY ONE MODEL  (1)
+────────────────────────
+  ~x-ai/grok-latest
+      Several US states tax SaaS as tangible personal property rather than a service,
+      which changes the sourcing rule.
+
+RAISED BY SOME  (1)
+───────────────────
+  ~anthropic/claude-opus-latest, ~google/gemini-pro-latest
+      Invoicing must show the customer's VAT number for the reverse charge to be
+      defensible on audit.
+
+NOT COVERED BY ANYONE  (1)
+──────────────────────────
+  • No model addressed the UK's own VAT position on the same supplies after the Brexit
+    transition.
+
+  3 panel answers withheld — rerun with --full to read them
+
+SOURCES  (2)
+────────────
+   1. VAT One Stop Shop — European Commission
+      https://vat-one-stop-shop.ec.europa.eu/index_en
+   2. VAT rules for supplies of digital services to consumers — GOV.UK
+      https://www.gov.uk/guidance/vat-rules-for-supplies-of-digital-services
+
+DEGRADED PANEL  (1 of 4 did not answer)
+───────────────────────────────────────
+  the answer and analysis above reflect only the models that responded
+  ~openai/gpt-latest  Stream completed without producing any text
+
+  note: model catalog is 3h old
+
+────────────────────────────────────────────────────────────
+3 of 4 answered · 2m48s · $0.3348 · 3884 tokens

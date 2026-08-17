@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "question": "A UK company sells SaaS to EU consumers and US businesses. What are the VAT and US sales-tax obligations, and where do they interact?",
+  "asked_at": "2026-08-17T14:05:00Z",
+  "elapsed_ms": 168000,
+  "panel": [
+    {
+      "author": "openai",
+      "lab": "OpenAI",
+      "slug": "~openai/gpt-latest",
+      "name": "OpenAI GPT Latest",
+      "context_length": 1050000,
+      "prompt_usd_per_mtok": 5,
+      "completion_usd_per_mtok": 30,
+      "preferred": true
+    },
+    {
+      "author": "anthropic",
+      "lab": "Anthropic",
+      "slug": "~anthropic/claude-opus-latest",
+      "name": "Anthropic: Claude Opus Latest",
+      "context_length": 1000000,
+      "prompt_usd_per_mtok": 5,
+      "completion_usd_per_mtok": 25,
+      "preferred": true
+    },
+    {
+      "author": "google",
+      "lab": "Google",
+      "slug": "~google/gemini-pro-latest",
+      "name": "Google Gemini Pro Latest",
+      "context_length": 1048576,
+      "prompt_usd_per_mtok": 2,
+      "completion_usd_per_mtok": 12,
+      "preferred": true
+    },
+    {
+      "author": "x-ai",
+      "lab": "xAI",
+      "slug": "~x-ai/grok-latest",
+      "name": "xAI: Grok Latest",
+      "context_length": 500000,
+      "prompt_usd_per_mtok": 2,
+      "completion_usd_per_mtok": 6,
+      "preferred": true
+    }
+  ],
+  "judge": "~anthropic/claude-opus-latest",
+  "outer": "~anthropic/claude-opus-latest",
+  "outer_resolved": "anthropic/claude-opus-5",
+  "synthesis": "Two separate regimes apply and they do not overlap.\n\nFor EU consumers the UK company must register for VAT under the non-Union OSS scheme and charge the customer's local rate from the first sale — there is no threshold. For US business customers, SaaS taxability varies by state and the reverse-charge concept does not exist.",
+  "analysis": {
+    "consensus": [
+      "Non-Union OSS registration is required for EU B2C sales from the first euro; there is no de minimis threshold.",
+      "US sales tax is determined state by state, and economic nexus thresholds are evaluated per state."
+    ],
+    "contradictions": [
+      {
+        "topic": "Whether B2B sales to EU businesses need OSS registration",
+        "stances": [
+          {
+            "model": "~openai/gpt-latest",
+            "position": "No — B2B supplies are covered by the reverse charge, so OSS is not needed for them."
+          },
+          {
+            "model": "~google/gemini-pro-latest",
+            "position": "Partially — the reverse charge applies only where the customer's VAT number is validated; unvalidated customers must be treated as B2C."
+          }
+        ]
+      }
+    ],
+    "partial_coverage": [
+      {
+        "models": [
+          "~anthropic/claude-opus-latest",
+          "~google/gemini-pro-latest"
+        ],
+        "point": "Invoicing must show the customer's VAT number for the reverse charge to be defensible on audit."
+      }
+    ],
+    "unique_insights": [
+      {
+        "model": "~x-ai/grok-latest",
+        "insight": "Several US states tax SaaS as tangible personal property rather than a service, which changes the sourcing rule."
+      }
+    ],
+    "blind_spots": [
+      "No model addressed the UK's own VAT position on the same supplies after the Brexit transition."
+    ]
+  },
+  "responses": [
+    {
+      "model": "~anthropic/claude-opus-latest",
+      "content": "The two regimes are independent...\n\nEU: register for non-Union OSS."
+    },
+    {
+      "model": "~google/gemini-pro-latest",
+      "content": "Start with the place-of-supply rules..."
+    },
+    {
+      "model": "~x-ai/grok-latest",
+      "content": "Watch the state-level SaaS classification..."
+    }
+  ],
+  "sources": [
+    {
+      "url": "https://vat-one-stop-shop.ec.europa.eu/index_en",
+      "title": "VAT One Stop Shop — European Commission"
+    },
+    {
+      "url": "https://www.gov.uk/guidance/vat-rules-for-supplies-of-digital-services",
+      "title": "VAT rules for supplies of digital services to consumers — GOV.UK"
+    }
+  ],
+  "failed": [
+    {
+      "model": "~openai/gpt-latest",
+      "error": "Stream completed without producing any text"
+    }
+  ],
+  "usage": {
+    "input_tokens": 764,
+    "output_tokens": 3120,
+    "total_tokens": 3884,
+    "cost_usd": 0.3348
+  },
+  "response_id": "gen-1786974238-uxGHDllmFw2ZNwQWJQsK",
+  "warnings": [
+    "model catalog is 3h old"
+  ]
+}

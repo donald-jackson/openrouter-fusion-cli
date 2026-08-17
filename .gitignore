@@ -1,0 +1,14 @@
+# Secrets — .env holds OPENROUTER_API_KEY and must never be committed.
+.env
+.env.*
+!.env.example
+
+# Build output
+bin/
+dist/
+
+# Local tooling state
+.remember/
+
+# macOS
+.DS_Store
