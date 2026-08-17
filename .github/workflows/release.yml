@@ -130,8 +130,31 @@ jobs:
           linux/amd64 and linux/arm64. Verify with \`checksums.txt\`.
           EOF
 
-          gh release create "${VERSION}" \
-            --repo "${{ github.repository }}" \
-            --title "${VERSION}" \
-            --notes-file /tmp/notes.md \
-            dist/*
+          # The upload is the one step that cannot be retried by re-running the
+          # job cheaply — everything before it is deterministic, this part talks to
+          # the API. A transient 5xx here (GitHub returned 503 on the first attempt
+          # at this release) should not throw away a good build, so retry with
+          # backoff and treat an already-created release as success.
+          for attempt in 1 2 3 4 5; do
+            if gh release view "${VERSION}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+              echo "Release ${VERSION} already exists; uploading assets to it."
+              if gh release upload "${VERSION}" dist/* \
+                   --repo "${{ github.repository }}" --clobber; then
+                echo "Assets uploaded."
+                exit 0
+              fi
+            elif gh release create "${VERSION}" \
+                   --repo "${{ github.repository }}" \
+                   --title "${VERSION}" \
+                   --notes-file /tmp/notes.md \
+                   dist/*; then
+              echo "Release ${VERSION} created."
+              exit 0
+            fi
+
+            echo "Attempt ${attempt} failed; retrying in $((attempt * 20))s."
+            sleep $((attempt * 20))
+          done
+
+          echo "Could not publish the release after 5 attempts."
+          exit 1
