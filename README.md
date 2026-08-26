@@ -37,24 +37,31 @@ NOT COVERED BY ANYONE  (1)
 
 ## Install
 
-### From a release (macOS, Apple Silicon)
-
-This repository is private, so downloads need an authenticated `gh`:
+### Homebrew (macOS and Linux)
 
 ```bash
-gh release download v0.1.0 --repo donald-jackson/openrouter-fusion-cli \
-  --pattern 'council_v0.1.0_darwin_arm64'
-chmod +x council_v0.1.0_darwin_arm64
-mv council_v0.1.0_darwin_arm64 /usr/local/bin/council
+brew install donald-jackson/tap/council
+```
+
+That taps `donald-jackson/homebrew-tap` and installs a prebuilt binary — Apple Silicon,
+Intel, and Linux on both architectures. Upgrades come through `brew upgrade` like
+anything else. Because Homebrew installs it, macOS does not quarantine it and no
+`xattr` surgery is needed.
+
+### From a release
+
+```bash
+gh release download v0.2.0 --repo donald-jackson/openrouter-fusion-cli \
+  --pattern 'council_v0.2.0_darwin_arm64'
+chmod +x council_v0.2.0_darwin_arm64
+mv council_v0.2.0_darwin_arm64 /usr/local/bin/council
 council version
 ```
 
-`gh release download` does not set the macOS quarantine attribute, so the binary runs
-as-is. If you download through a browser instead, Gatekeeper will quarantine the
-unsigned binary — clear it with `xattr -d com.apple.quarantine ./council`.
-
-`.tar.gz` archives for darwin/amd64, linux/amd64 and linux/arm64 are attached to the
-same release, with a `checksums.txt`.
+`.tar.gz` archives for darwin/arm64, darwin/amd64, linux/amd64 and linux/arm64 are
+attached to the same release, with a `checksums.txt`. A binary downloaded through a
+browser is quarantined by Gatekeeper because it is unsigned — clear it with
+`xattr -d com.apple.quarantine ./council`.
 
 ### From source
 
@@ -64,17 +71,30 @@ go build -o bin/council ./cmd/council
 
 ### API key
 
-Read from `OPENROUTER_API_KEY` in the environment, then `.env` in the working
-directory, then `~/.config/council/config.env` — first non-empty wins. Only that one
-variable is read; nothing is exported into the environment.
+```bash
+council setup
+```
 
-Because `.env` resolves against the working directory, put the key in the config file
-if you want to run `council` from anywhere:
+It prompts for the key without echoing it, checks it against OpenRouter before saving
+anything, and writes it to `~/.config/council/config.env` with mode `0600`. After that
+`council` works from any directory. Get a key at
+[openrouter.ai/keys](https://openrouter.ai/keys).
+
+For scripts and CI, pipe it in instead — the prompt is skipped when stdin is not a
+terminal:
 
 ```bash
-mkdir -p ~/.config/council
-echo 'OPENROUTER_API_KEY=sk-or-v1-...' > ~/.config/council/config.env
+echo "$OPENROUTER_API_KEY" | council setup --force
 ```
+
+`council setup --show` reports which key is in effect and where it came from, without
+changing anything.
+
+Resolution order is `OPENROUTER_API_KEY` in the environment, then `.env` in the working
+directory, then `~/.config/council/config.env` — first non-empty wins. Only that one
+variable is read, and nothing is exported into your environment. Because the first two
+win, `setup` tells you when it has just written a key that something closer will
+override.
 
 `council models` and `council skill` work without a key — the model catalog endpoint is
 public. Only `ask` needs one.
@@ -90,6 +110,9 @@ council ask - < question.txt             # read from stdin
 council models                           # the current council, and cache age
 council models --all                     # every ~latest alias OpenRouter publishes
 council skill -o .claude/skills/council/SKILL.md
+
+council setup                            # store the API key globally
+council setup --show                     # which key is in use, and from where
 ```
 
 Useful flags for `ask`: `--models` to override the panel, `--judge` / `--outer` to

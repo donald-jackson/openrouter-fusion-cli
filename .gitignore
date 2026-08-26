@@ -12,3 +12,6 @@ dist/
 
 # macOS
 .DS_Store
+
+# Serena MCP project state
+.serena/

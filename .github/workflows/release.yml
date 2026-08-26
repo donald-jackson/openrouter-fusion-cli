@@ -91,7 +91,17 @@ jobs:
         run: |
           set -euo pipefail
           cat > /tmp/notes.md <<EOF
-          ## Install on macOS (Apple Silicon)
+          ## Install
+
+          \`\`\`bash
+          brew install donald-jackson/tap/council
+          \`\`\`
+
+          Prebuilt binaries for macOS (Apple Silicon and Intel) and Linux
+          (x86_64 and arm64). Homebrew-installed binaries are not quarantined
+          by Gatekeeper.
+
+          ### Without Homebrew
 
           \`\`\`bash
           gh release download ${VERSION} --repo ${{ github.repository }} \\
@@ -101,12 +111,8 @@ jobs:
           council version
           \`\`\`
 
-          This repository is private, so downloads require an authenticated
-          \`gh\` (or a token). \`gh release download\` does not set the macOS
-          quarantine attribute, so the binary runs as-is.
-
-          If you download through a browser instead, Gatekeeper will quarantine
-          the unsigned binary. Clear it with:
+          A binary downloaded through a browser is quarantined because it is
+          unsigned. Clear it with:
 
           \`\`\`bash
           xattr -d com.apple.quarantine ./council
@@ -114,15 +120,13 @@ jobs:
 
           ## Setup
 
-          \`council\` needs an OpenRouter API key, read from \`OPENROUTER_API_KEY\`
-          in the environment, then \`.env\` in the working directory, then
-          \`~/.config/council/config.env\`. To use it from any directory:
-
           \`\`\`bash
-          mkdir -p ~/.config/council
-          echo 'OPENROUTER_API_KEY=sk-or-v1-...' > ~/.config/council/config.env
-          council models
+          council setup
           \`\`\`
+
+          Prompts for your OpenRouter API key without echoing it, verifies it
+          against the API, and stores it in \`~/.config/council/config.env\`
+          with mode 0600 so \`council\` works from any directory.
 
           ## Other platforms
 

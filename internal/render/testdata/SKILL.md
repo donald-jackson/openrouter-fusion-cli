@@ -106,3 +106,7 @@ single step and is noticeably cheaper.
 
 `0` success (possibly degraded) · `2` usage error · `3` no API key ·
 `4` API error · `5` every panellist failed · `6` timed out or cancelled
+
+On `3`, the tool is installed but has no credentials. Tell the user to run
+`council setup` themselves — it prompts for the key interactively. Do not ask them
+to paste the key into this conversation.

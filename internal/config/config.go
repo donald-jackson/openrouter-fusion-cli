@@ -21,12 +21,27 @@ func (e *ErrNoAPIKey) Error() string {
 	return fmt.Sprintf("no %s found (looked in: %s)", EnvKey, strings.Join(e.Searched, ", "))
 }
 
+// SourceEnvironment is the Source value reported when the key came from the
+// environment rather than from a file.
+const SourceEnvironment = "environment"
+
 // APIKey resolves the API key from, in order: the environment, a .env file in the
 // working directory, and ~/.config/council/config.env. The first non-empty value wins.
 func APIKey() (string, error) {
-	searched := []string{"environment"}
+	key, _, err := APIKeyWithSource()
+	return key, err
+}
+
+// APIKeyWithSource resolves the API key and also reports where it came from —
+// SourceEnvironment, or the path of the file that supplied it.
+//
+// The source matters to the setup command: a key saved globally is still shadowed by
+// an environment variable or by a .env in the working directory, and silently saving
+// a key that will not be used is worse than not saving it at all.
+func APIKeyWithSource() (key, source string, err error) {
+	searched := []string{SourceEnvironment}
 	if k := strings.TrimSpace(os.Getenv(EnvKey)); k != "" {
-		return k, nil
+		return k, SourceEnvironment, nil
 	}
 
 	for _, path := range keyFiles() {
@@ -36,16 +51,43 @@ func APIKey() (string, error) {
 			continue // unreadable or absent; try the next location
 		}
 		if k := strings.TrimSpace(vals[EnvKey]); k != "" {
-			return k, nil
+			return k, path, nil
 		}
 	}
-	return "", &ErrNoAPIKey{Searched: searched}
+	return "", "", &ErrNoAPIKey{Searched: searched}
+}
+
+// Shadowing returns the locations that take precedence over the global config file
+// and currently hold a key, in precedence order. An empty result means a key saved
+// by "council setup" is the one that will actually be used.
+func Shadowing() []string {
+	var found []string
+	if strings.TrimSpace(os.Getenv(EnvKey)) != "" {
+		found = append(found, SourceEnvironment)
+	}
+	global, err := KeyPath()
+	if err != nil {
+		return found
+	}
+	for _, path := range keyFiles() {
+		if path == global {
+			break // everything after this point is lower precedence
+		}
+		vals, err := parseEnvFile(path)
+		if err != nil {
+			continue
+		}
+		if strings.TrimSpace(vals[EnvKey]) != "" {
+			found = append(found, path)
+		}
+	}
+	return found
 }
 
 func keyFiles() []string {
 	paths := []string{".env"}
 	if dir, err := ConfigDir(); err == nil {
-		paths = append(paths, filepath.Join(dir, "config.env"))
+		paths = append(paths, filepath.Join(dir, KeyFileName))
 	}
 	return paths
 }

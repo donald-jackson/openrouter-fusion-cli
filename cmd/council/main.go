@@ -51,6 +51,8 @@ func run(args []string) int {
 		return report(cmdModels(rest))
 	case "skill":
 		return report(cmdSkill(rest))
+	case "setup":
+		return report(cmdSetup(rest))
 	case "version", "--version", "-v":
 		fmt.Println("council", version)
 		return exitOK
@@ -84,7 +86,7 @@ func report(err error) int {
 		return exitUsage
 	case errors.As(err, &noKey):
 		fmt.Fprintf(os.Stderr, "council: %v\n", err)
-		fmt.Fprintf(os.Stderr, "  set it in the environment, or put %s=... in a .env file here.\n", config.EnvKey)
+		fmt.Fprintln(os.Stderr, "  run `council setup` to store one, or set "+config.EnvKey+" in the environment.")
 		return exitNoAPIKey
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		fmt.Fprintln(os.Stderr, "council: cancelled or timed out before the panel finished")
@@ -117,6 +119,7 @@ Usage:
   council ask <question>     Convene the council. Use "-" to read from stdin.
   council models             Show the current council and cache status.
   council skill              Emit a SKILL.md teaching an agent to use this tool.
+  council setup              Store your OpenRouter API key for use from any directory.
   council version
 
 Run "council <command> -h" for the flags of each command.
