@@ -50,7 +50,9 @@ DARWIN_AMD64="$(sha_for darwin_amd64)"
 LINUX_AMD64="$(sha_for linux_amd64)"
 LINUX_ARM64="$(sha_for linux_arm64)"
 
-# Homebrew's "version" is the bare number; the tag keeps its v prefix.
+# Homebrew infers the version from the tag embedded in the asset URLs, and
+# `brew audit --strict` rejects a redundant `version` line, so BARE is only used
+# for the commit message.
 BARE="${VERSION#v}"
 DL="https://github.com/${REPO}/releases/download/${VERSION}"
 
@@ -68,7 +70,6 @@ cat > "$work/tap/$FORMULA_PATH" <<FORMULA
 class Council < Formula
   desc "Ask frontier models one question and see where they disagree"
   homepage "https://github.com/${REPO}"
-  version "${BARE}"
   license "MIT"
 
   # There is no single top-level url for livecheck to follow, so it watches the
@@ -116,8 +117,10 @@ class Council < Formula
   end
 
   test do
-    # Version, so a mismatched or truncated download fails the test.
-    assert_match "council #{version}", shell_output("#{bin}/council version")
+    # Version, so a mismatched or truncated download fails the test. Homebrew's
+    # version is bare ("0.2.0") while the binary reports the tag ("v0.2.0"), hence
+    # the explicit v.
+    assert_match "council v#{version}", shell_output("#{bin}/council version")
 
     # Discovery against the live catalog endpoint, which needs no credentials. This
     # is the check that the binary actually runs on this machine rather than merely
@@ -132,12 +135,15 @@ end
 FORMULA
 
 cd "$work/tap"
-if git diff --quiet -- "$FORMULA_PATH"; then
+# Stage first, then compare against the index. `git diff` alone ignores untracked
+# files, so a formula being added for the very first time would look unchanged and
+# the push would be skipped.
+git add "$FORMULA_PATH"
+if git diff --cached --quiet -- "$FORMULA_PATH"; then
   echo "==> formula already up to date"
   exit 0
 fi
 
-git add "$FORMULA_PATH"
 git -c user.name="${GIT_NAME:-Donald Jackson}" \
     -c user.email="${GIT_EMAIL:-donald@ddj.co.za}" \
     commit -q -m "council ${BARE}"
