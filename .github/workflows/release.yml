@@ -54,7 +54,7 @@ jobs:
               -o "$outdir/council" \
               ./cmd/council
 
-            cp README.md "$outdir/"
+            cp README.md LICENSE "$outdir/"
             tar -czf "${outdir}.tar.gz" -C dist "$(basename "$outdir")"
             rm -rf "$outdir"
             echo "built ${outdir}.tar.gz"

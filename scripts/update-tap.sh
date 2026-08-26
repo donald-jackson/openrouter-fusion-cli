@@ -69,6 +69,7 @@ class Council < Formula
   desc "Ask frontier models one question and see where they disagree"
   homepage "https://github.com/${REPO}"
   version "${BARE}"
+  license "MIT"
 
   # There is no single top-level url for livecheck to follow, so it watches the
   # repository's releases directly.

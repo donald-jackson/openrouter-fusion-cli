@@ -181,6 +181,10 @@ whoever responded — but it does change what the answer is worth, so it is repo
 the footer (`3 of 4 answered`), in a dedicated section, and in `failed[]` in the JSON.
 A two-model answer from a four-model panel is not a four-model answer.
 
+## Licence
+
+MIT. See [LICENSE](LICENSE).
+
 ## Tests
 
 ```bash
