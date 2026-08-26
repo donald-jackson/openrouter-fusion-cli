@@ -162,3 +162,36 @@ jobs:
 
           echo "Could not publish the release after 5 attempts."
           exit 1
+
+  # Point the Homebrew tap at the release that was just published, so `brew upgrade`
+  # picks it up without a manual step.
+  #
+  # This needs a token that can write to donald-jackson/homebrew-tap; the automatic
+  # GITHUB_TOKEN is scoped to this repository alone. Without the secret the job is
+  # skipped rather than failed — a missing tap bump should never retroactively mark a
+  # good release as broken, and the formula can always be refreshed by running
+  # scripts/update-tap.sh locally.
+  tap:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Is a tap token configured?
+        id: token
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+        run: |
+          if [ -n "$TAP_TOKEN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::TAP_TOKEN is not set; skipping the Homebrew tap update. Run scripts/update-tap.sh ${{ inputs.tag || github.ref_name }} locally to publish the formula."
+          fi
+
+      - name: Update the Homebrew formula
+        if: steps.token.outputs.present == 'true'
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/update-tap.sh "${{ inputs.tag || github.ref_name }}"
