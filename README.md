@@ -117,7 +117,9 @@ council setup --show                     # which key is in use, and from where
 
 Useful flags for `ask`: `--models` to override the panel, `--judge` / `--outer` to
 choose who compares and who writes the final answer, `--max-tool-calls` to bound the
-web research (1 is much cheaper than the default 4), `--timeout`, `--raw` to dump the
+web research (1-16, minimum 1; 1 is much cheaper than the default 4), `--timeout`,
+`--request-timeout` and `--retries` to tune per-attempt timeouts and retries of transient
+failures such as `unexpected EOF`, `--raw` to dump the
 unmodified API response, `--no-color`.
 
 Exit codes: `0` success (possibly degraded) · `2` usage · `3` no API key ·
