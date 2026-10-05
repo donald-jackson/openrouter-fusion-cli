@@ -45,6 +45,8 @@ Flags:
 		maxTokens   = fs.Int("max-tokens", 0, "cap each panel and judge answer (0 = provider default)")
 		temperature = fs.Float64("temperature", -1, "panel temperature (default: provider default)")
 		timeout     = fs.Duration("timeout", council.DefaultTimeout, "abandon the consultation after this long")
+		reqTimeout  = fs.Duration("request-timeout", 0, "abandon a single HTTP attempt after this long (0 = only the overall -timeout applies)")
+		retries     = fs.Int("retries", openrouter.DefaultMaxAttempts-1, "retries after a transient failure (429, 5xx, dropped connection)")
 		refresh     = fs.Bool("refresh", false, "refresh the model catalog before asking")
 		rawOut      = fs.String("raw", "", "also write the unmodified API response to this file")
 		noColor     = fs.Bool("no-color", false, "disable ANSI colour")
@@ -77,6 +79,13 @@ Flags:
 			*maxTokens, minSafeMaxTokens)
 	}
 
+	if *retries < 0 || *retries > 10 {
+		return &errUsage{msg: fmt.Sprintf("-retries must be between 0 and 10, got %d", *retries)}
+	}
+	if *reqTimeout < 0 {
+		return &errUsage{msg: "-request-timeout must not be negative"}
+	}
+
 	apiKey, err := config.APIKey()
 	if err != nil {
 		return err
@@ -88,6 +97,8 @@ Flags:
 	defer cancel()
 
 	client := openrouter.New(apiKey)
+	client.MaxAttempts = *retries + 1
+	client.RequestTimeout = *reqTimeout
 
 	// Discovery is skipped entirely when the panel is given explicitly, so an
 	// override works even if the catalog endpoint is unreachable.

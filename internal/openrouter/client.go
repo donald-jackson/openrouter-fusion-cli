@@ -18,8 +18,9 @@ import (
 // DefaultBaseURL is the OpenRouter API root.
 const DefaultBaseURL = "https://openrouter.ai/api/v1"
 
-// maxAttempts bounds retries of transient failures (429 and 5xx).
-const maxAttempts = 3
+// DefaultMaxAttempts bounds attempts at a request that fails transiently (429, 5xx,
+// or a dropped connection such as "unexpected EOF").
+const DefaultMaxAttempts = 3
 
 // maxResponseBytes caps how much of a response body we will buffer, so a runaway
 // or hostile response cannot exhaust memory.
@@ -30,6 +31,12 @@ type Client struct {
 	APIKey  string
 	BaseURL string
 	HTTP    *http.Client
+
+	// MaxAttempts is the total number of tries per request (minimum 1).
+	MaxAttempts int
+	// RequestTimeout, when positive, bounds each individual attempt, separately
+	// from the overall deadline carried by the context.
+	RequestTimeout time.Duration
 
 	// Referer and Title populate OpenRouter's optional attribution headers.
 	Referer string
@@ -44,8 +51,10 @@ func New(apiKey string) *Client {
 		APIKey:  apiKey,
 		BaseURL: DefaultBaseURL,
 		HTTP:    &http.Client{},
-		Referer: "https://github.com/donald-jackson/openrouter-fusion-cli",
-		Title:   "council",
+
+		MaxAttempts: DefaultMaxAttempts,
+		Referer:     "https://github.com/donald-jackson/openrouter-fusion-cli",
+		Title:       "council",
 	}
 }
 
@@ -91,6 +100,10 @@ func (c *Client) post(ctx context.Context, path string, payload any) ([]byte, er
 func (c *Client) do(ctx context.Context, method, path string, body []byte) ([]byte, error) {
 	var lastErr error
 
+	maxAttempts := c.MaxAttempts
+	if maxAttempts < 1 {
+		maxAttempts = DefaultMaxAttempts
+	}
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		if attempt > 1 {
 			if err := sleep(ctx, backoff(attempt, lastErr)); err != nil {
@@ -98,13 +111,53 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte) ([]by
 			}
 		}
 
+		reqCtx, cancelReq := ctx, context.CancelFunc(func() {})
+		if c.RequestTimeout > 0 {
+			reqCtx, cancelReq = context.WithTimeout(ctx, c.RequestTimeout)
+		}
+		raw, status, header, err := c.attempt(reqCtx, method, path, body)
+		cancelReq()
+		if err != nil {
+			// A cancelled or expired overall context is final, never transient.
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			lastErr = fmt.Errorf("attempt %d/%d: %w", attempt, maxAttempts, err)
+			continue
+		}
+
+		if status >= 200 && status < 300 {
+			// A 200 can still carry an error envelope.
+			if apiErr := decodeError(raw, status); apiErr != nil {
+				return raw, apiErr
+			}
+			return raw, nil
+		}
+
+		apiErr := decodeError(raw, status)
+		if apiErr == nil {
+			apiErr = &APIError{StatusCode: status, Message: snippet(raw)}
+		}
+		if !retryable(status) {
+			return raw, apiErr
+		}
+		apiErr.Metadata = retryAfter(header)
+		lastErr = apiErr
+	}
+
+	return nil, fmt.Errorf("after %d attempts: %w", maxAttempts, lastErr)
+}
+
+// attempt performs one HTTP round trip and reads the whole body.
+func (c *Client) attempt(ctx context.Context, method, path string, body []byte) ([]byte, int, http.Header, error) {
+	{
 		var reader io.Reader
 		if body != nil {
 			reader = bytes.NewReader(body) // fresh reader per attempt
 		}
 		req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, reader)
 		if err != nil {
-			return nil, err
+			return nil, 0, nil, err
 		}
 		if c.APIKey != "" {
 			req.Header.Set("Authorization", "Bearer "+c.APIKey)
@@ -122,44 +175,15 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte) ([]by
 
 		resp, err := c.HTTP.Do(req)
 		if err != nil {
-			// A cancelled or expired context is final, never transient.
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
-			}
-			lastErr = err
-			continue
+			return nil, 0, nil, err
 		}
-
-		raw, readErr := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
-		resp.Body.Close()
-		if readErr != nil {
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
-			}
-			lastErr = readErr
-			continue
+		defer resp.Body.Close()
+		raw, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
+		if err != nil {
+			return raw, resp.StatusCode, resp.Header, err
 		}
-
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			// A 200 can still carry an error envelope.
-			if apiErr := decodeError(raw, resp.StatusCode); apiErr != nil {
-				return raw, apiErr
-			}
-			return raw, nil
-		}
-
-		apiErr := decodeError(raw, resp.StatusCode)
-		if apiErr == nil {
-			apiErr = &APIError{StatusCode: resp.StatusCode, Message: snippet(raw)}
-		}
-		if !retryable(resp.StatusCode) {
-			return raw, apiErr
-		}
-		apiErr.Metadata = retryAfter(resp.Header)
-		lastErr = apiErr
+		return raw, resp.StatusCode, resp.Header, nil
 	}
-
-	return nil, fmt.Errorf("after %d attempts: %w", maxAttempts, lastErr)
 }
 
 // decodeError returns an *APIError if raw carries an OpenRouter error envelope.
