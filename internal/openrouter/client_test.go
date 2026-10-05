@@ -4,14 +4,15 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
 func TestRequestTimeoutAndMaxAttempts(t *testing.T) {
-	var hits int
+	var hits atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hits++
+		hits.Add(1)
 		<-r.Context().Done()
 	}))
 	defer srv.Close()
@@ -24,7 +25,7 @@ func TestRequestTimeoutAndMaxAttempts(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if hits != 1 {
-		t.Fatalf("hits = %d, want 1", hits)
+	if hits.Load() != 1 {
+		t.Fatalf("hits = %d, want 1", hits.Load())
 	}
 }
